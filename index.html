@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Queue Simulator</title>
+     <!-- Using local version of commented js -->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.js"></script>
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>-->
+    <!-- <script src="http://code.jquery.com/ui/1.11.2/jquery-ui.js"></script>-->
+    
+   <!--  <link rel="stylesheet" href="https://code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css">-->
+    <!-- <script src="https://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>-->
+    <script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>
+    
+ <script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script> 
+   <!--  <script src="js/bootstrap.min.js"></script>-->
+
+    <script src="js/random-0.26.js"></script>
+    <script src="js/highcharts.js"></script>
+        <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+
+
+    <link rel="stylesheet" href="css/styles.css">
+
+  </head>
+  <style>
+   .small_size{
+       font-size:12px;
+   }
+</style>
+  <body>
+ 	<div class="" style="background:#000;text-align:center;padding:20px 0 10px 0px; margin-top:-70px">
+	    	<h2 style="color:#e2e2e2 !important;">Queue Simulator</h2>
+	</div>
+
+    <div class="container">
+	<div class="row " style="padding:20px 0 0 20px;">
+          <div class="rate-slider col-xs-9 col-xs-offset-1  col-md-6 col-md-offset-3">
+            <h4 class="rate_text">Arrivals</h4>
+            <span>per minute</span>
+            <div class="col-md-12">
+              <div id="slider"></div>
+            </div>
+          </div>
+      </div>
+    <div class="row" style="padding:0 0 0 20px;">
+    
+        <div class="rate-slider col-xs-9 col-xs-offset-1 col-md-6 col-md-offset-3">
+            <h4 class="rate_text">Services</h4>
+            <span>per minute</span>
+            <div class="col-sm-12">
+              <div id="slider2"></div>
+            </div>
+          </div>
+    </div>
+                <input type="hidden" id="arrival_rate" class="form-control">
+                <input type="hidden" id="capacity" class="form-control">
+
+		<div class="panel panel-default">
+		    <h3 style="text-align:center;">Customers in System</h3>
+		    <div class="panel-body">
+			<div class="box-body chart-responsive" style:"" >
+                  <div class="chart" id="line-chart" style="width:100%;height: 300px;padding:0px;"></div>
+	  </div>
+  
+	  <label type="button" class="btn btn-danger btn-lg pull-right" id="reload"><span class="glyphicon glyphicon-repeat"></span></label>
+	  
+<div class="pull-left">
+      <label type="button" class="btn btn-success btn-lg" id="faster">
+	  Fast</label>
+            <label type="button" class="btn btn-default btn-lg" id="stop">
+		<span class="glyphicon glyphicon-pause"></span></label>
+	                <label type="button" class="btn btn-primary btn-lg hidden" id="play">
+	  <span class="glyphicon glyphicon-play"></span></label>
+  <label class="" id="stochastic_label" >
+    <input type="checkbox" autocomplete="off" checked id="stochastic"/> Random
+  </label>
+  <label id="average_label" >
+    <input type="checkbox" autocomplete="off" id="average"/> Avg
+  </label>
+</div>
+		    </div>  	
+
+			  	    <div style="text-align:center"><span id="output" class="" style="font-weight:bold;color:#3577BE;">&nbsp</span></div>
+
+		</div>
+		<div class="pull-right"><a style="text-decoration:none;" href="http://www.randhawa.us">&#169 R. S. Randhawa, 2015</a></div>
+    </div>
+
+  </body>
+
+
+
+
+    <script>
+     var stochastic=1;
+     var average=0;
+     var fasterN=100;
+     var Q=0;
+     var counter=0;
+     var Q_avg;
+     var lam;
+     var mu;
+     var curr_time,temp_time;
+     var speed=1;
+     var nextArrival;
+     var nextService;
+     var numArrived=0,numServed=0;
+     var max_time=1000;
+     var randStream=new Random();
+     var Q_data=new Array();
+     var time_delta,Delta=250;
+     var timer,time_start,start=new Date();
+     var time_remain;
+     var screensize = document.documentElement.clientWidth;
+     var active;
+
+     if(screensize<350)
+     {
+	 $("#faster").removeClass("btn-lg");
+	 $("#stop").removeClass("btn-lg");
+	 $("#play").removeClass("btn-lg");
+	 $("#reload").removeClass("btn-lg");
+	 $("#stochastic_label").addClass("small_size");
+	 $("#average_label").addClass("small_size");
+     }
+     
+ function generateExp(rate)
+ {
+     var x;    
+     if(stochastic)
+	 x=-Math.log(randStream.uniform(0,1))/(rate/60)*1000;
+     else
+	 x=1/(rate/60)*1000;
+     return curr_time+x;
+ }
+     function readVals()
+     {
+	 lam= $("#arrival_rate").val();
+	 if(isNaN(lam))
+	     lam=1;
+	 lam=Math.min(60,Math.max(1,lam));
+		      
+	 mu= $("#capacity").val();
+	 if(isNaN(mu))
+	     mu=2;
+	 mu=Math.min(60,Math.max(1,mu));
+     }
+     
+ function arrival()
+ {
+     if(curr_time>0)
+	 Q_avg=(Q_avg*temp_time+Q*(curr_time-temp_time))/curr_time;
+     temp_time=curr_time;
+     
+     Q++;
+ }
+
+ function service()
+ {
+     if(curr_time>0)
+         Q_avg=(Q_avg*temp_time+Q*(curr_time-temp_time))/curr_time;
+     temp_time=curr_time;
+
+     if(Q>0)
+	 Q--;	 
+ }
+
+ function generateTimes()
+     {
+	 readVals();
+	 if(curr_time+time_delta>Math.min(nextArrival,nextService)-1)
+	 {
+	     curr_time=Math.min(nextArrival,nextService);
+
+	 
+	 if(nextArrival<nextService)
+	 {
+	     if(Q==0)
+		 nextService=generateExp(mu);
+	     arrival();
+	     nextArrival=generateExp(lam);
+	 }
+	 else
+	 {
+	     service();
+	     if(Q==0)
+		 nextService=curr_time+1000*100000;
+	     else
+		 nextService=generateExp(mu);
+
+	 }
+	 }
+	 else
+	 {
+	     curr_time+=time_delta;
+	 }
+	 if(curr_time>600*1000)
+	     Delta=1000;
+	     time_delta=Math.min(Delta,Math.min(nextArrival,nextService)-curr_time);
+	 time_start=new Date();
+	 timer=setTimeout(generateTimes,time_delta);
+	 Q_data.push([curr_time,Q]);
+
+	 
+	 if(average)
+	     $("#output").text("Average: "+parseFloat(Q_avg).toFixed(2));
+	 else
+	     $("#output").text(" ");
+
+	 //Truncate axis
+	 screensize = document.documentElement.clientWidth;
+	 var axisWidth=1000;
+	 
+	 if (screensize  < 600) {
+	     axisWidth=600;
+	 }
+
+	     if(curr_time>axisWidth*1000)
+	 {
+	     Delta=1000;
+
+	     var chart_min, chart_max;
+	     chart_max=curr_time;
+	     chart_min=curr_time-axisWidth*1000;
+	     charter.xAxis[0].update({
+		 min:chart_min,
+		 max:chart_max
+             });
+	     var i=0;
+	     while(Q[i][0]<chart_min)
+		 i++;
+	     if(screensize<1100)
+	     {
+		 Q_data.splice(0,i);
+		 }
+
+	 }
+	 var start_time=new Date();
+	 charter.series[0].setData(Q_data);
+	 if ((screensize  < 600)&&(curr_time>axisWidth*1000)) {
+	  //   Q_data.shift();
+	 }
+	 var now=new Date();
+	 if(now-active>120*1000)
+	 {
+//	     alert("Simulator is paused");
+	     $("#stop").click();
+	 }
+	 
+
+	 }
+ 
+
+
+function draw_graph()
+{
+	
+	charter=new Highcharts.Chart({
+	        chart: {
+		    renderTo: 'line-chart',
+		    zoomType: 'x',
+		    panning: true,
+		    panKey: 'shift',
+		    animation: true,
+		    resetZoomButton: {
+                theme: {
+                    fill: 'white',
+                    stroke: 'silver',
+                    r: 2,
+                    states: {
+                        hover: {
+                            fill: '#3577BE',
+                            style: {
+                                color: 'white'
+                            }
+                        }
+                    }
+                }
+            }
+	        },
+	        colors: ['#3577BE'],
+	        credits:{
+		        enabled:false
+	        },
+	        title: {
+	            text: ''
+	        },
+	        subtitle: {
+		    align:"right",
+		    text: document.ontouchstart === undefined ?
+	                    'Click and drag to zoom<br/>Hold down shift key to pan' :
+	                    'Pinch to zoom<br/>Touch outside plot to scroll'
+	        },
+	        xAxis: {
+		      title: {
+			  text: 'Seconds',
+			  align: 'middle'
+		      },
+	            type: 'linear',
+	            allowDecimals: false,
+		      minPadding: 0.01,
+	              maxPadding: 0.01,
+	            //max:0*max_duration,
+	           labels: {
+	                formatter: function() {
+		                return this.value/1000;
+
+	                }
+	            }
+	        },
+	        yAxis: {
+	            title: {   
+		            text:''
+	            },
+	            min: 0,
+	            //max: initial_price+10,
+	            endOnTick: false,
+		    minPadding: 0.1,
+	            maxPadding: 0.1,
+	            labels: {
+	             /*   formatter: function() {
+	                    return '$'+this.value;
+	                }*/
+	            }
+	        },
+	        legend: {
+	            enabled: false
+	        },
+	        plotOptions: {
+	        	series: {
+	                step: 'left' // or 'center' or 'right'
+	            },
+	            line: {
+	                lineWidth: 2,
+	                marker:{
+		                enabled:false
+	                },
+	            },
+	            scatter: {
+	                marker:{
+		                enabled:true,
+		                symbol: "circle",
+		                radius: 6
+		                
+	                }
+	            }  
+	            
+	        },
+		tooltip:{
+		    enabled:false,
+		    formatter: function(){
+			return "Time: "+parseFloat(this.x/1000).toFixed(1)+"<br/>"+"Queue: "+this.y;
+		    }
+	        },
+
+		navigation:{
+		    buttonOptions:{
+			enabled:false
+		    }
+		},	
+	        series: [{
+	            type: 'line',
+	            name: 'Queue',
+	            pointInterval:  1,
+	            pointStart: 0,
+	            data:Q_data
+	        }]
+	    });
+}
+
+ function simulate()
+     {
+	 active=new Date();
+	 if(screensize<1000)
+	     Delta=500;
+	     
+     Q=0;
+     Q_avg=0;
+     curr_time=0;
+     temp_time=curr_time;
+     numArrived=0;
+     numServed=0;
+     
+
+     readVals();
+     nextArrival=generateExp(lam);
+     if(Q==0)
+	 nextService=curr_time+1000*100000;
+     else
+	 nextService=generateExp(mu);
+     Q_data.push([0,0]);
+     draw_graph();
+     time_delta=Math.min(Delta,Math.min(nextArrival,nextService)-curr_time);
+     timer=setTimeout(generateTimes,time_delta);
+ }
+
+
+     $(document).ready(function() {
+
+          $("#slider").slider({
+              range: "min",
+              animate: true,
+              value:30,
+              min: 1,
+              max: 60,
+              step: 1,
+              slide: function(event, ui) {
+                update(1,ui.value); //changed
+              }
+          });
+
+          $("#slider2").slider({
+              range: "min",
+              animate: true,
+              value:60,
+              min: 1,
+              max: 60,
+              step: 1,
+              slide: function(event, ui) {
+                update(2,ui.value); //changed
+              }
+          });
+	  
+          //Added, set initial value.
+          $("#arrival_rate").val(30);
+          $("#capacity").val(60);
+          
+        update();
+	simulate();
+	
+      });
+
+      //changed. now with parameter
+      function update(slider,val) {
+        //changed. Now, directly take value from ui.value. if not set (initial, will use current value.)
+        var $arrival_rate = slider == 1?val:$("#arrival_rate").val();
+        var $capacity = slider == 2?val:$("#capacity").val();
+	nextArrival=generateExp($arrival_rate);
+	nextService=generateExp($capacity);
+
+         $( "#arrival_rate" ).val($arrival_rate);
+         $( "#capacity" ).val($capacity);
+	  $("#slider span").html($arrival_rate);
+	  $("#slider2 span").html($capacity);
+      }
+/*         $('#slider span').html('<label><span class="glyphicon glyphicon-chevron-left"></span> '+$arrival_rate+' <span class="glyphicon glyphicon-chevron-right"></span></label>');
+          $('#slider2 span').html('<label><span class="glyphicon glyphicon-chevron-left"></span> '+$capacity+' <span class="glyphicon glyphicon-chevron-right"></span></label>');
+ */
+     $("#faster").click(function(){
+	 active=new Date();
+	 if($("#play").hasClass("hidden")==true){
+	      counter=0;
+	      clearTimeout(timer);
+	      /*store current vals*/
+	      var nextServiceOld=nextService-curr_time;
+	      var nextArrivalOld=nextArrival-curr_time;
+	      
+	      readVals();
+	      var counter_max=100;///(60/(lam));
+
+	      //generate next event
+	      curr_time=Math.min(nextArrival,nextService);
+	      var old_time=curr_time;
+
+	      Q_avg=(Q_avg*temp_time+Q*(curr_time-temp_time))/curr_time;
+	      temp_time=curr_time;
+	      
+	      if(nextArrival<nextService)
+	      {
+		  if(Q==0)
+		      nextService=generateExp(mu);
+		  Q++;
+		  nextArrival=generateExp(lam);
+
+	      }
+	      else
+	      {
+		  Q--;
+		  if(Q==0)
+		      nextService=curr_time+1000*100000;
+		  else
+		      nextService=generateExp(mu);
+		  
+	      }
+
+	      Q_data.push([curr_time,Q]);
+
+
+	      if(stochastic){
+		  while(curr_time<old_time+100*1000)
+		  {
+		      counter++;
+		      
+		      curr_time=generateExp(lam+mu*Math.min(Q,1));
+
+		      Q_avg=(Q_avg*temp_time+Q*(curr_time-temp_time))/curr_time;
+		      temp_time=curr_time;
+
+		      if(randStream.uniform(0,1)<=lam/(lam+mu*Math.min(Q,1)))
+		      {
+			  Q++;
+		      }
+		      else
+			  Q--;
+		      Q_data.push([curr_time,Q]);
+
+		  }
+		  nextArrival=generateExp(lam);
+		  if(Q==0)
+		      nextService=curr_time+1000*100000;
+		  else
+		      nextService=generateExp(mu);
+		  
+	      }
+	      else
+	      {
+		  
+		  while(curr_time<old_time+100*1000)
+		  {
+		      counter++;
+
+		      curr_time=Math.min(nextArrival,nextService);		      
+		      Q_avg=(Q_avg*temp_time+Q*(curr_time-temp_time))/curr_time;
+		      temp_time=curr_time;
+		      if(nextArrival<nextService)
+		      {
+			  Q++;
+			  nextArrival=generateExp(lam);
+			  if(Q==1)
+			       nextService=generateExp(mu);
+		      }
+		      else
+		      {
+			  Q--;
+			  if(Q==0)
+			      nextService=curr_time+1000*100000;
+			  else
+			      nextService=generateExp(mu);
+		      }
+		      
+		      Q_data.push([curr_time,Q]);
+
+		  }
+
+	      }
+
+	     charter.series[0].setData(Q_data);
+
+	      /*restore old values*/
+/*	      nextService=nextServiceOld+curr_time;
+	      nextArrival=nextArrivalOld+curr_time;
+*/
+	      time_delta=Math.min(Delta,Math.min(nextArrival,nextService)-curr_time);
+
+	      time_start=new Date();
+	      timer=setTimeout(generateTimes,time_delta);
+	      
+	 }
+     });
+     
+	  $("#reload").click(function(){
+	      location.reload();
+	  });
+     $("#average").click(function(){
+	 active=new Date();
+	      average=1-average;
+	      if(average)
+		  $("#output").text("Average: "+parseFloat(Q_avg).toFixed(2));
+	      else
+		  $("#output").text("");
+
+	  });
+	  $("#stochastic").click(function(){
+	      stochastic=1-stochastic;
+	      active=new Date();
+		  
+	  });
+     $("#stop").click(function(){
+	 active=new Date();
+	 $("#play").removeClass("hidden");
+	 $(this).addClass("hidden");
+	 var now=new Date();
+	 time_remain=(time_delta)-(now-time_start);
+	 clearTimeout(timer);
+		  
+     });
+     $("#play").click(function(){
+	 active=new Date();
+	     $("#play").addClass("hidden");
+	     $("#stop").removeClass("hidden");
+	     timer=setTimeout(generateTimes,time_remain);
+		  
+	  });
+     $(window).on("orientationchange",function(){
+	 screensize = window.orientation==0? screen.width:screen.height;
+	 if(screensize<350)
+	 {
+	     $("#faster").removeClass("btn-lg");
+	     $("#stop").removeClass("btn-lg");
+	     $("#play").removeClass("btn-lg");
+	     $("#reload").removeClass("btn-lg");
+	     $("#stochastic_label").addClass("small_size");
+	     $("#average_label").addClass("small_size");
+	 }
+	 else
+	 {
+	     $("#faster").addClass("btn-lg");
+	     $("#stop").addClass("btn-lg");
+	     $("#play").addClass("btn-lg");
+	     $("#reload").addClass("btn-lg");
+	     $("#stochastic_label").removeClass("small_size");
+	     $("#average_label").removeClass("small_size");
+	 }	     
+     });
+
+    </script>
+  </body>
+</html>
