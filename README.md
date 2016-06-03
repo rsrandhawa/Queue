@@ -1,4 +1,4 @@
-## Queue Simulator
+## An M/M/1 Queue in your Browser
 
 This application visualizes the sample path of a single server queue in real-time. You can change the arrival rate and processing rates between 1-60 per minute. Check it out at http://q.randhawa.us
 
